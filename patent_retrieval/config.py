@@ -18,7 +18,22 @@ DEFAULT_PAGE_SIZE = 100
 DEFAULT_REDUCTION_MAX_PATENTS = 20
 DEFAULT_REDUCTION_MIN_SCORE = 55.0
 
-DEFAULT_POLL_SECONDS = 2.0
+DEFAULT_POLL_SECONDS = 2.0  # kept for backward compatibility
+
+# Polling – exponential backoff
+DEFAULT_POLL_INITIAL_WAIT = 1.0    # seconds before the first retry
+DEFAULT_POLL_MAX_WAIT = 30.0       # per-interval ceiling
+DEFAULT_POLL_TIMEOUT = 300.0       # total wall-clock deadline
+DEFAULT_POLL_BACKOFF_FACTOR = 2.0  # each interval is multiplied by this
+
+# Google Patents abstract enrichment
+DEFAULT_GOOGLE_PATENTS_TIMEOUT = 10.0  # seconds
+
+# Pipeline output
+TOP_PATENTS_LIMIT = 10
+
+# Max chemicals to query individually when resolving to patent IDs
+DEFAULT_MAX_CHEMICALS_TO_QUERY = 20
 
 # HTTP settings
 DEFAULT_CONNECTION_TIMEOUT = 10.0
@@ -44,6 +59,14 @@ class RetrievalConfig:
     max_results: int = DEFAULT_MAX_RESULTS
     page_size: int = DEFAULT_PAGE_SIZE
     poll_seconds: float = DEFAULT_POLL_SECONDS
+
+    poll_initial_wait: float = DEFAULT_POLL_INITIAL_WAIT
+    poll_max_wait: float = DEFAULT_POLL_MAX_WAIT
+    poll_timeout: float = DEFAULT_POLL_TIMEOUT
+    poll_backoff_factor: float = DEFAULT_POLL_BACKOFF_FACTOR
+
+    google_patents_timeout: float = DEFAULT_GOOGLE_PATENTS_TIMEOUT
+    max_chemicals_to_query: int = DEFAULT_MAX_CHEMICALS_TO_QUERY
 
     connection_timeout: float = DEFAULT_CONNECTION_TIMEOUT
     read_timeout: float = DEFAULT_READ_TIMEOUT
@@ -72,6 +95,16 @@ class RetrievalConfig:
             raise ValueError("max_results must be at least 1")
         if self.page_size < 1:
             raise ValueError("page_size must be at least 1")
+        if self.poll_initial_wait <= 0:
+            raise ValueError("poll_initial_wait must be positive")
+        if self.poll_max_wait < self.poll_initial_wait:
+            raise ValueError("poll_max_wait must be >= poll_initial_wait")
+        if self.poll_timeout <= 0:
+            raise ValueError("poll_timeout must be positive")
+        if self.poll_backoff_factor < 1.0:
+            raise ValueError("poll_backoff_factor must be >= 1.0")
+        if self.max_chemicals_to_query < 1:
+            raise ValueError("max_chemicals_to_query must be at least 1")
         if self.max_retries < 0:
             raise ValueError("max_retries must be non-negative")
         if self.chunk_retries < 0:
