@@ -22,6 +22,11 @@ from patent_reduction.pipeline.patent_reduction_pipeline import PatentReductionP
 from patent_retrieval.batch_fetcher import BatchDocumentFetcher
 from patent_retrieval.config import RetrievalConfig
 from patent_retrieval.http_session import SureChemblSession
+from patent_retrieval.patent_enrichment import (
+    print_extraction_details,
+    print_schema_comparison,
+    print_verification_summary,
+)
 from patent_retrieval.utils import (
     extract_documents,
     extract_structures,
@@ -487,9 +492,21 @@ def main() -> int:
             details: Any = {}
             if patent_ids:
                 details = retrieve_document_details(session, retrieval_config, patent_ids)
-                print_document_fields(details)
+                enriched_patents = extract_documents(details)
+                if not enriched_patents:
+                    raise RuntimeError(
+                        "Patent enrichment produced zero usable patents; stopping before "
+                        "reduction/ranking. Inspect logs/debug_document_batch_response.json "
+                        "and the SureChEMBL enrichment logs."
+                    )
+                print_schema_comparison()
+                print_extraction_details(enriched_patents[0])
+                print_verification_summary(enriched_patents)
             else:
-                print("No patent IDs could be inferred from the response; raw JSON was printed above.")
+                raise RuntimeError(
+                    "No patent IDs could be inferred from the search response; stopping "
+                    "before enrichment and reduction/ranking."
+                )
 
             reduction_result = reduce_patents(
                 patent_response=patent_response,

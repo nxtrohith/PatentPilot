@@ -9,9 +9,10 @@ extraction to keep memory usage bounded.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .chunk_fetcher import ChunkFetcher
+from .patent_enrichment import extract_batch_patents
 from .config import RetrievalConfig
 from .http_session import SureChemblSession
 from .progress_tracker import RetrievalProgressTracker
@@ -64,7 +65,14 @@ class BatchDocumentFetcher:
                 base_url=base_url,
             )
             if chunk_data is not None:
-                chunk_documents = extract_documents(chunk_data)
+                # /document/batch returns data as a list of nested patent
+                # objects, so enrich it before exposing it to downstream code.
+                chunk_documents = extract_batch_patents(chunk_data)
+                # Retain compatibility with the older documented/results shape
+                # used by existing callers and test fixtures; deployed batch
+                # responses take the nested data-list branch above.
+                if not chunk_documents:
+                    chunk_documents = extract_documents(chunk_data)
                 if chunk_documents:
                     all_documents = merge_documents_by_doc_id(
                         all_documents,

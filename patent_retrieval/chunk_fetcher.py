@@ -8,6 +8,7 @@ and final failure without aborting the overall workflow.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -64,6 +65,7 @@ class ChunkFetcher:
                     )
                     response.raise_for_status()
                     data = response.json()
+                    self._save_raw_batch_response(response.content)
                     ctx.set_success()
                     logger.info(
                         "Chunk %d: fetched %d patent IDs from %s",
@@ -99,3 +101,22 @@ class ChunkFetcher:
                         self.tracker.record_failed_ids(patent_ids)
 
         return None
+
+    @staticmethod
+    def _save_raw_batch_response(raw_response: bytes) -> None:
+        """Persist the unmodified API bytes for schema debugging.
+
+        For a chunked batch, the file is overwritten by each successful request;
+        it therefore always contains one complete, exact API response rather
+        than a synthesized/merged representation.
+        """
+        if not isinstance(raw_response, bytes):
+            logger.warning(
+                "Could not save raw /document/batch response because response.content is %s.",
+                type(raw_response).__name__,
+            )
+            return
+        path = Path(__file__).resolve().parents[1] / "logs" / "debug_document_batch_response.json"
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(raw_response)
+        logger.info("Saved unmodified /document/batch response to %s", path)

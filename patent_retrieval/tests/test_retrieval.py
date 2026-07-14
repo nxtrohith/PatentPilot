@@ -11,6 +11,7 @@ import requests
 from patent_retrieval.batch_fetcher import BatchDocumentFetcher
 from patent_retrieval.config import RetrievalConfig
 from patent_retrieval.http_session import SureChemblSession, build_retry_strategy
+from patent_retrieval.patent_enrichment import enrich_patent, extract_batch_patents
 from patent_retrieval.progress_tracker import RetrievalProgressTracker
 from patent_retrieval.utils import (
     extract_documents,
@@ -109,6 +110,49 @@ class TestBatchDocumentFetcher:
         summary = result["data"]["results"]["retrieval_summary"]
         assert summary["failed_ids"] == 1
         assert summary["chunks_failed"] == 1
+
+
+class TestPatentEnrichment:
+    def test_extracts_nested_batch_document_and_preserves_raw_object(self) -> None:
+        raw = {
+            "doc_id": "US-123-A1",
+            "contents": {
+                "patentDocument": {
+                    "bibliographicData": {
+                        "publicationReference": [{
+                            "ucid": "US-123-A1",
+                            "documentId": [{"country": {"content": "US"}, "docNumber": "123", "kind": "A1", "date": "20240102"}],
+                        }],
+                        "technicalData": {"inventionTitles": [{"lang": "EN", "title": "Nested title"}]},
+                        "parties": [{"assignees": {"assignee": [{"addressbook": {"name": "Example Corp"}}]}}],
+                    },
+                    "family": ["FAMILY-1"],
+                    "abstracts": [{"lang": "EN", "section": {"content": "Abstract text"}}],
+                    "claimResponses": [{"section": {"content": "Claim 1"}}],
+                    "descriptions": [{"section": {"content": "Description text"}}],
+                    "legalStatus": [{"legal-event": [{"@code": "GRANT", "@date": "20250101", "legal-event-body": {"event-title": {"$": "Granted"}}}]}],
+                }
+            },
+        }
+
+        patent = enrich_patent(raw)
+
+        assert patent is not None
+        assert patent["doc_id"] == "US-123-A1"
+        assert patent["title"] == "Nested title"
+        assert patent["publication_number"] == "US-123-A1"
+        assert patent["publication_date"] == "20240102"
+        assert patent["assignee"] == "Example Corp"
+        assert patent["abstract"] == "Abstract text"
+        assert patent["claims"] == "Claim 1"
+        assert patent["description"] == "Description text"
+        assert patent["family_id"] == "FAMILY-1"
+        assert patent["legal_events"][0]["title"] == "Granted"
+        assert patent["raw_patent"] is raw
+
+    def test_skips_non_object_and_missing_doc_id_without_crashing(self) -> None:
+        assert enrich_patent({"contents": {}}) is None
+        assert extract_batch_patents({"data": [None, {"contents": {}}]}) == []
 
 
 class TestUtils:
