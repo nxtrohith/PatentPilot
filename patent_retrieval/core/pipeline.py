@@ -19,14 +19,18 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .config import RetrievalConfig, TOP_PATENTS_LIMIT
-from .enrichment_service import enrich_missing_abstracts
 from .http_session import SureChemblSession
-from .metadata_service import fetch_patent_details, retrieve_patent_ids_for_chemicals
-from .models import PatentResult, RetrievalError
-from .patent_enrichment import enrich_patent
-from .polling_service import poll_until_complete
-from .results_service import retrieve_search_results
-from .search_service import start_similarity_search, validate_smiles
+from ..models import PatentResult, RetrievalError
+from ..services import (
+    enrich_missing_abstracts,
+    fetch_patent_details,
+    retrieve_patent_ids_for_chemicals,
+    enrich_patent,
+    poll_until_complete,
+    retrieve_search_results,
+    start_similarity_search,
+    validate_smiles,
+)
 
 logger = logging.getLogger(__name__)
 

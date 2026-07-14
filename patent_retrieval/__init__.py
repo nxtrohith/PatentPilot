@@ -1,22 +1,40 @@
 """Resilient, production-ready SureChEMBL patent retrieval pipeline."""
 
-from .batch_fetcher import BatchDocumentFetcher
-from .chunk_fetcher import ChunkFetcher
-from .config import RetrievalConfig, TOP_PATENTS_LIMIT
-from .enrichment_service import enrich_missing_abstracts
-from .http_session import SureChemblSession
-from .metadata_service import fetch_patent_details, retrieve_patent_ids_for_chemicals
-from .models import ChemicalMatch, PatentResult, RetrievalError
-from .patent_enrichment import enrich_patent, extract_batch_patents
-from .pipeline import PatentRetrievalPipeline
-from .polling_service import poll_until_complete
-from .progress_tracker import (
+from .core import (
+    PatentRetrievalPipeline,
+    RetrievalConfig,
+    SureChemblSession,
+    TOP_PATENTS_LIMIT,
+)
+from .database import (
+    close_client,
+    delete_patents,
+    get_client,
+    get_db,
+    load_patents,
+    save_patents,
+)
+from .models import (
+    ChemicalMatch,
     ChunkAttempt,
+    PatentResult,
+    RetrievalError,
     RetrievalProgressTracker,
     RetrievalSummary,
 )
-from .results_service import retrieve_search_results
-from .search_service import start_similarity_search, validate_smiles
+from .services import (
+    BatchDocumentFetcher,
+    ChunkFetcher,
+    enrich_missing_abstracts,
+    enrich_patent,
+    extract_batch_patents,
+    fetch_patent_details,
+    poll_until_complete,
+    retrieve_patent_ids_for_chemicals,
+    retrieve_search_results,
+    start_similarity_search,
+    validate_smiles,
+)
 from .utils import (
     doc_id_for_record,
     extract_documents,
@@ -33,6 +51,13 @@ from .utils import (
 __all__ = [
     # Pipeline entry point
     "PatentRetrievalPipeline",
+    # MongoDB helpers
+    "get_db",
+    "get_client",
+    "close_client",
+    "save_patents",
+    "load_patents",
+    "delete_patents",
     # Data models
     "ChemicalMatch",
     "PatentResult",

@@ -13,10 +13,9 @@ from typing import Any, Dict, List, Optional
 
 from .chunk_fetcher import ChunkFetcher
 from .patent_enrichment import extract_batch_patents
-from .config import RetrievalConfig
-from .http_session import SureChemblSession
-from .progress_tracker import RetrievalProgressTracker
-from .utils import extract_documents, merge_documents_by_doc_id
+from ..core import RetrievalConfig, SureChemblSession
+from ..models import RetrievalProgressTracker
+from ..utils import extract_documents, merge_documents_by_doc_id
 
 logger = logging.getLogger(__name__)
 

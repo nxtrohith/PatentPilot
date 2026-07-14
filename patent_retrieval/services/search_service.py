@@ -11,10 +11,9 @@ import logging
 
 import requests
 
-from .config import RetrievalConfig
-from .http_session import SureChemblSession
-from .models import RetrievalError
-from .utils import first_value_for_keys
+from ..core import RetrievalConfig, SureChemblSession
+from ..models import RetrievalError
+from ..utils import first_value_for_keys
 
 logger = logging.getLogger(__name__)
 

@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from patent_retrieval.batch_fetcher import BatchDocumentFetcher
-from patent_retrieval.config import RetrievalConfig
-from patent_retrieval.http_session import SureChemblSession, build_retry_strategy
-from patent_retrieval.patent_enrichment import enrich_patent, extract_batch_patents
-from patent_retrieval.progress_tracker import RetrievalProgressTracker
-from patent_retrieval.utils import (
+from patent_retrieval.services.batch_fetcher import BatchDocumentFetcher
+from patent_retrieval.core.config import RetrievalConfig
+from patent_retrieval.core.http_session import SureChemblSession, build_retry_strategy
+from patent_retrieval.services.patent_enrichment import enrich_patent, extract_batch_patents
+from patent_retrieval.models.progress_tracker import RetrievalProgressTracker
+from patent_retrieval.utils.utils import (
     extract_documents,
     merge_documents_by_doc_id,
     patent_count,
@@ -56,7 +56,7 @@ class TestSureChemblSession:
             assert kwargs["timeout"] == (10.0, 60.0)
 
     def test_context_manager_closes_session(self) -> None:
-        with patch("patent_retrieval.http_session.create_session") as mock_create:
+        with patch("patent_retrieval.core.http_session.create_session") as mock_create:
             mock_session = MagicMock()
             mock_create.return_value = mock_session
             with SureChemblSession(RetrievalConfig.default()) as session:

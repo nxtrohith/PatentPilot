@@ -7,22 +7,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from patent_retrieval.config import RetrievalConfig, TOP_PATENTS_LIMIT
-from patent_retrieval.enrichment_service import (
+from patent_retrieval.core.config import RetrievalConfig, TOP_PATENTS_LIMIT
+from patent_retrieval.services.enrichment_service import (
     _parse_ld_json_abstract,
     _parse_meta_description,
     enrich_missing_abstracts,
 )
-from patent_retrieval.metadata_service import (
+from patent_retrieval.services.metadata_service import (
     _build_params,
     fetch_patent_details,
     retrieve_patent_ids_for_chemicals,
 )
 from patent_retrieval.models import ChemicalMatch, PatentResult, RetrievalError
-from patent_retrieval.pipeline import PatentRetrievalPipeline, _build_patent_results
-from patent_retrieval.polling_service import poll_until_complete
-from patent_retrieval.results_service import _parse_chemical_matches, retrieve_search_results
-from patent_retrieval.search_service import start_similarity_search, validate_smiles
+from patent_retrieval.core.pipeline import PatentRetrievalPipeline, _build_patent_results
+from patent_retrieval.services.polling_service import poll_until_complete
+from patent_retrieval.services.results_service import _parse_chemical_matches, retrieve_search_results
+from patent_retrieval.services.search_service import start_similarity_search, validate_smiles
 
 
 # --------------------------------------------------------------------------- #
@@ -129,7 +129,7 @@ class TestPollUntilComplete:
         ]
         session.json_request.side_effect = responses
         sleep_calls = []
-        with patch("patent_retrieval.polling_service.time.sleep", side_effect=lambda s: sleep_calls.append(s)):
+        with patch("patent_retrieval.services.polling_service.time.sleep", side_effect=lambda s: sleep_calls.append(s)):
             poll_until_complete(session, self._cfg(poll_timeout=10.0), "h")
         # First sleep should be shorter or equal to the second.
         assert len(sleep_calls) == 2
@@ -141,7 +141,7 @@ class TestPollUntilComplete:
             requests.RequestException("temporary"),
             {"status": "finished"},
         ]
-        with patch("patent_retrieval.polling_service.time.sleep"):
+        with patch("patent_retrieval.services.polling_service.time.sleep"):
             poll_until_complete(session, self._cfg(poll_timeout=5.0), "h")
 
 
@@ -277,7 +277,7 @@ class TestEnrichMissingAbstracts:
     def test_attempts_enrichment_for_missing_abstract(self) -> None:
         patent = PatentResult(publication_number="US1234567A1")
         with patch(
-            "patent_retrieval.enrichment_service._fetch_google_abstract",
+            "patent_retrieval.services.enrichment_service._fetch_google_abstract",
             return_value="Fetched abstract text.",
         ):
             result = enrich_missing_abstracts([patent], self._config())
@@ -287,7 +287,7 @@ class TestEnrichMissingAbstracts:
     def test_leaves_source_unchanged_on_failed_enrichment(self) -> None:
         patent = PatentResult(publication_number="US9999999A1")
         with patch(
-            "patent_retrieval.enrichment_service._fetch_google_abstract",
+            "patent_retrieval.services.enrichment_service._fetch_google_abstract",
             return_value=None,
         ):
             result = enrich_missing_abstracts([patent], self._config())
@@ -297,7 +297,7 @@ class TestEnrichMissingAbstracts:
     def test_skips_if_no_publication_number_or_doc_id(self) -> None:
         patent = PatentResult()  # no identifiers
         with patch(
-            "patent_retrieval.enrichment_service._fetch_google_abstract"
+            "patent_retrieval.services.enrichment_service._fetch_google_abstract"
         ) as mock_fetch:
             enrich_missing_abstracts([patent], self._config())
         mock_fetch.assert_not_called()
@@ -355,9 +355,9 @@ class TestPatentRetrievalPipeline:
     def test_returns_empty_list_when_no_chemical_matches(self) -> None:
         pipeline = self._make_pipeline()
         with (
-            patch("patent_retrieval.pipeline.start_similarity_search", return_value="h"),
-            patch("patent_retrieval.pipeline.poll_until_complete"),
-            patch("patent_retrieval.pipeline.retrieve_search_results", return_value=[]),
+            patch("patent_retrieval.core.pipeline.start_similarity_search", return_value="h"),
+            patch("patent_retrieval.core.pipeline.poll_until_complete"),
+            patch("patent_retrieval.core.pipeline.retrieve_search_results", return_value=[]),
         ):
             result = pipeline.run("CC")
         assert result == []
@@ -366,10 +366,10 @@ class TestPatentRetrievalPipeline:
         pipeline = self._make_pipeline()
         chemical_matches = [ChemicalMatch("SCHEMBL1", 0.9)]
         with (
-            patch("patent_retrieval.pipeline.start_similarity_search", return_value="h"),
-            patch("patent_retrieval.pipeline.poll_until_complete"),
-            patch("patent_retrieval.pipeline.retrieve_search_results", return_value=chemical_matches),
-            patch("patent_retrieval.pipeline.retrieve_patent_ids_for_chemicals", return_value=[]),
+            patch("patent_retrieval.core.pipeline.start_similarity_search", return_value="h"),
+            patch("patent_retrieval.core.pipeline.poll_until_complete"),
+            patch("patent_retrieval.core.pipeline.retrieve_search_results", return_value=chemical_matches),
+            patch("patent_retrieval.core.pipeline.retrieve_patent_ids_for_chemicals", return_value=[]),
         ):
             result = pipeline.run("CC")
         assert result == []
@@ -396,12 +396,12 @@ class TestPatentRetrievalPipeline:
             for i in range(15)
         ]
         with (
-            patch("patent_retrieval.pipeline.start_similarity_search", return_value="h"),
-            patch("patent_retrieval.pipeline.poll_until_complete"),
-            patch("patent_retrieval.pipeline.retrieve_search_results", return_value=chemical_matches),
-            patch("patent_retrieval.pipeline.retrieve_patent_ids_for_chemicals", return_value=patent_id_scores),
-            patch("patent_retrieval.pipeline.fetch_patent_details", return_value=raw_patents),
-            patch("patent_retrieval.pipeline.enrich_missing_abstracts", side_effect=lambda patents, cfg: patents),
+            patch("patent_retrieval.core.pipeline.start_similarity_search", return_value="h"),
+            patch("patent_retrieval.core.pipeline.poll_until_complete"),
+            patch("patent_retrieval.core.pipeline.retrieve_search_results", return_value=chemical_matches),
+            patch("patent_retrieval.core.pipeline.retrieve_patent_ids_for_chemicals", return_value=patent_id_scores),
+            patch("patent_retrieval.core.pipeline.fetch_patent_details", return_value=raw_patents),
+            patch("patent_retrieval.core.pipeline.enrich_missing_abstracts", side_effect=lambda patents, cfg: patents),
         ):
             result = pipeline.run("CC", top_n=10)
 
@@ -431,12 +431,12 @@ class TestPatentRetrievalPipeline:
             for i in range(5)
         ]
         with (
-            patch("patent_retrieval.pipeline.start_similarity_search", return_value="h"),
-            patch("patent_retrieval.pipeline.poll_until_complete"),
-            patch("patent_retrieval.pipeline.retrieve_search_results", return_value=chemical_matches),
-            patch("patent_retrieval.pipeline.retrieve_patent_ids_for_chemicals", return_value=patent_id_scores),
-            patch("patent_retrieval.pipeline.fetch_patent_details", return_value=raw_patents),
-            patch("patent_retrieval.pipeline.enrich_missing_abstracts", side_effect=lambda patents, cfg: patents),
+            patch("patent_retrieval.core.pipeline.start_similarity_search", return_value="h"),
+            patch("patent_retrieval.core.pipeline.poll_until_complete"),
+            patch("patent_retrieval.core.pipeline.retrieve_search_results", return_value=chemical_matches),
+            patch("patent_retrieval.core.pipeline.retrieve_patent_ids_for_chemicals", return_value=patent_id_scores),
+            patch("patent_retrieval.core.pipeline.fetch_patent_details", return_value=raw_patents),
+            patch("patent_retrieval.core.pipeline.enrich_missing_abstracts", side_effect=lambda patents, cfg: patents),
         ):
             result = pipeline.run("CC", top_n=3)
 

@@ -22,8 +22,8 @@ from typing import List, Optional
 
 import requests
 
-from .config import RetrievalConfig
-from .models import PatentResult
+from ..core import RetrievalConfig
+from ..models import PatentResult
 
 logger = logging.getLogger(__name__)
 

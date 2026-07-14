@@ -13,9 +13,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-from .config import RetrievalConfig
-from .http_session import SureChemblSession
-from .progress_tracker import ChunkContext, RetrievalProgressTracker
+from ..core import RetrievalConfig, SureChemblSession
+from ..models.progress_tracker import ChunkContext, RetrievalProgressTracker
 
 logger = logging.getLogger(__name__)
 

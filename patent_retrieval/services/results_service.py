@@ -12,10 +12,9 @@ from typing import Any, List, Optional
 
 import requests
 
-from .config import RetrievalConfig
-from .http_session import SureChemblSession
-from .models import ChemicalMatch, RetrievalError
-from .utils import extract_structures, first_value_for_keys
+from ..core import RetrievalConfig, SureChemblSession
+from ..models import ChemicalMatch, RetrievalError
+from ..utils import extract_structures, first_value_for_keys
 
 logger = logging.getLogger(__name__)
 

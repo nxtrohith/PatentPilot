@@ -14,11 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 from .batch_fetcher import BatchDocumentFetcher
-from .config import RetrievalConfig
-from .http_session import SureChemblSession
-from .models import ChemicalMatch, RetrievalError
+from ..core import RetrievalConfig, SureChemblSession
+from ..models import ChemicalMatch, RetrievalError
 from .patent_enrichment import enrich_patent, extract_batch_patents
-from .utils import extract_documents, values_for_keys
+from ..utils import extract_documents, values_for_keys
 
 logger = logging.getLogger(__name__)
 
