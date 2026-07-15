@@ -38,3 +38,6 @@ def build_patent_workflow():
     workflow.add_edge("report", END)
     
     return workflow.compile()
+
+# Instantiate the compiled graph so LangGraph CLI can import it
+graph = build_patent_workflow()

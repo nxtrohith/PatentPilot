@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "patent_workflow": "workflows.graph:graph"
+  },
+  "env": ".env"
+}
