@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+
+:root {
+  --bg: #f7f6f1;
+  --surface: #ffffff;
+  --primary: #1c3461;
+  --text: #141210;
+  --text-secondary: #4a4844;
+  --text-muted: #7a7570;
+  --text-label: #b5b0aa;
+  --border: #e8e4de;
+  --border-light: #f0ede8;
+
+  --risk-low: #14532d;
+  --risk-low-bg: #f0fdf4;
+  --risk-review: #854d0e;
+  --risk-review-bg: #fffbeb;
+  --risk-high: #c1291e;
+  --risk-high-bg: #fef2f2;
+
+  --font-heading: "Fraunces", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Courier New", monospace;
+
+  --max-width: 1152px;
+  --px: 24px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Typography utilities */
+.font-heading { font-family: var(--font-heading); font-weight: 300; }
+.font-body    { font-family: var(--font-body); }
+.font-mono    { font-family: var(--font-mono); }
+
+/* Container */
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--px);
+}
+
+/* Divider */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 20px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover { opacity: 0.88; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 20px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.btn-secondary:hover { border-color: var(--text-muted); background: var(--surface); }
+
+/* Tag pill */
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--border-light);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  letter-spacing: 0.02em;
+}
+
+/* Risk badges */
+.badge-low    { color: var(--risk-low);    background: var(--risk-low-bg);    border: 1px solid #bbf7d0; padding: 3px 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+.badge-review { color: var(--risk-review); background: var(--risk-review-bg); border: 1px solid #fde68a; padding: 3px 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+.badge-high   { color: var(--risk-high);   background: var(--risk-high-bg);   border: 1px solid #fecaca; padding: 3px 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* Section label */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+/* Scroll animations */
+.fade-in {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Nav */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(247, 246, 241, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
