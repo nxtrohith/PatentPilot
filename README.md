@@ -7,28 +7,42 @@ PatentPilot is a resilient, production-ready pipeline designed to help researche
 
 ## 🏗️ Overall Architecture
 
-The codebase is organized into modular packages to isolate concerns and support future scalability:
+The codebase is organized into modular packages to isolate concerns and support future scalability. It uses LangGraph to orchestrate a multi-stage workflow:
 
 ```mermaid
 graph TD
-    User([Researcher Input]) --> main(main.py)
-    main --> Pipeline[Core: PatentRetrievalPipeline]
+    User([Researcher Input]) --> run(run.py)
+    run --> Workflow[LangGraph: build_patent_workflow]
     
-    subgraph patent_retrieval
-        Pipeline --> Config[Core: RetrievalConfig]
-        Pipeline --> Session[Core: SureChemblSession]
-        Pipeline --> Services[Services: API & Data Enrichment]
-        Pipeline --> DB[Database: MongoDB Persistence]
-        Pipeline --> Models[Models: Domain Entities]
-        Pipeline --> Utils[Utils: Nested JSON Walkers]
+    subgraph LangGraph Workflow
+        Retrieve[retrieve_patents_node] --> Enrich[enrich_patents_node]
+        Enrich --> Rank[rank_patents_node]
+        Rank --> Analyze[analyze_patents_node]
+        Analyze --> Aggregate[aggregate_results_node]
+        Aggregate --> Report[generate_report_node]
     end
     
-    Services --> SureChEMBL[SureChEMBL REST API]
-    Services --> GooglePatents[Google Patents Scraper]
-    DB --> MongoDB[(MongoDB Database)]
+    Workflow --> Retrieve
+    
+    Retrieve --> patent_retrieval
+    Enrich --> patent_retrieval
+    Analyze --> analysis
+    Report --> analysis
+    
+    subgraph patent_retrieval
+        Services[Services: API & Data Enrichment]
+        DB[Database: MongoDB Persistence]
+    end
+    
+    subgraph analysis
+        LLM[LLM Service: Gemini]
+    end
 ```
 
 ### Module Breakdown
+- **`workflows/`**: LangGraph state graph definition and nodes orchestration.
+- **`analysis/`**: AI-driven patent analysis, aggregation, and report generation using Gemini.
+- **`llm/`**: Abstractions and configurations for LLM interactions.
 - **`patent_retrieval/core/`**: Orchestration components, session logic, and configuration.
 - **`patent_retrieval/models/`**: Domain models (`PatentResult`, `ChemicalMatch`) and progress tracking models.
 - **`patent_retrieval/services/`**: Integration services for chemical searches, metadata retrieval, batch fetching, and HTML web-scraping/enrichment.
@@ -83,10 +97,11 @@ When SureChEMBL fails to provide an abstract for a patent, PatentPilot invokes i
 ### 1. Prerequisites
 Ensure you have [uv](https://github.com/astral-sh/uv) installed.
 
-### 2. Setup Database Connection
-Create a `.env` file at the project root and add your MongoDB connection string:
+### 2. Setup Database Connection & API Keys
+Create a `.env` file at the project root and add your MongoDB connection string and Gemini API key:
 ```env
 MONGODB_URI=mongodb+srv://your-uri
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ### 3. Install Dependencies
@@ -100,7 +115,7 @@ uv sync
 ### 4. Execute Pipeline
 Run the main script:
 ```bash
-uv run main.py
+uv run run.py
 ```
 
 ### 5. Run Test Suite
