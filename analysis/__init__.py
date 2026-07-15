@@ -5,9 +5,9 @@ for structured patent analysis results.
 """
 
 from .schema import PatentAnalysisResult, RiskLevel, Recommendation, PatentReportResult
-from .service import (
-    PatentAnalysisService,
-    PatentBatchResult,
+from .service import PatentAnalysisService, PatentBatchResult
+from .report_service import ReportGenerationService
+from .exceptions import (
     PatentAnalysisError,
     TransientLLMError,
     PermanentLLMError,
@@ -23,6 +23,7 @@ __all__ = [
     # Service
     "PatentAnalysisService",
     "PatentBatchResult",
+    "ReportGenerationService",
     # Exceptions
     "PatentAnalysisError",
     "TransientLLMError",

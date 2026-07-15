@@ -7,9 +7,14 @@ consistent settings such as temperature and model choice.
 Provider selection
 ------------------
 The active provider is controlled by the ``LLM_PROVIDER`` environment
-variable (default: ``"nvidia"``).
+variable (default: ``"gemini"``).
 
-nvidia (default)
+gemini (default)
+    Uses ``langchain-google-genai`` (``ChatGoogleGenerativeAI``).
+    Requires ``GOOGLE_API_KEY``.
+    Default model: ``gemini-2.5-pro``.
+
+nvidia
     Uses ``langchain-nvidia-ai-endpoints`` (``ChatNVIDIA``).
     Requires ``NVIDIA_API_KEY``.
     Default model: ``deepseek-ai/deepseek-v3`` — strong tool/function calling
@@ -26,7 +31,7 @@ groq (fallback)
 Model overrides
 ---------------
 The active model can be overridden per-call via the ``model_name`` argument
-to :func:`get_llm`, or globally via the ``NVIDIA_MODEL`` / ``GROQ_MODEL``
+to :func:`get_llm`, or globally via the ``GEMINI_MODEL`` / ``NVIDIA_MODEL`` / ``GROQ_MODEL``
 environment variables.
 """
 
@@ -39,6 +44,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 # Provider defaults
 # ---------------------------------------------------------------------------
 
+_GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite"
 _NVIDIA_DEFAULT_MODEL = "z-ai/glm-5.2"
 _GROQ_DEFAULT_MODEL   = "llama-3.3-70b-versatile"
 
@@ -59,18 +65,19 @@ def get_llm(
     """Initialize and return a chat model instance.
 
     The provider is chosen from the ``provider`` argument (highest priority),
-    then the ``LLM_PROVIDER`` environment variable, then ``"nvidia"`` as the
+    then the ``LLM_PROVIDER`` environment variable, then ``"gemini"`` as the
     hard-coded default.
 
     Args:
         model_name: Optional model identifier override.  When ``None`` the
-            provider-specific default model is used (``NVIDIA_MODEL`` /
+            provider-specific default model is used (``GEMINI_MODEL`` /
+            ``NVIDIA_MODEL`` /
             ``GROQ_MODEL`` env vars are checked first).
         temperature: Sampling temperature.  Defaults to ``0.0`` for
             deterministic, reproducible structured-output calls.
-        provider: Optional provider override (``"nvidia"`` or ``"groq"``).  When
+        provider: Optional provider override (``"gemini"``, ``"nvidia"`` or ``"groq"``).  When
             ``None`` the ``LLM_PROVIDER`` environment variable is used, falling
-            back to ``"nvidia"``.
+            back to ``"gemini"``.
         top_p: Nucleus-sampling probability mass (NVIDIA only).  ``None`` uses
             the model's server-side default.
         max_tokens: Maximum tokens in the completion (NVIDIA only).  ``None``
@@ -97,10 +104,17 @@ def get_llm(
     """
     resolved_provider = (
         provider
-        or os.getenv("LLM_PROVIDER", "nvidia")
+        or os.getenv("LLM_PROVIDER", "gemini")
     ).lower().strip()
 
-    if resolved_provider == "nvidia":
+    if resolved_provider == "gemini":
+        return _build_gemini_llm(
+            model_name=model_name,
+            temperature=temperature,
+            top_p=top_p,
+            max_tokens=max_tokens,
+        )
+    elif resolved_provider == "nvidia":
         return _build_nvidia_llm(
             model_name=model_name,
             temperature=temperature,
@@ -113,13 +127,58 @@ def get_llm(
     else:
         raise ValueError(
             f"Unsupported LLM provider: '{resolved_provider}'. "
-            "Set LLM_PROVIDER to 'nvidia' or 'groq'."
+            "Set LLM_PROVIDER to 'gemini', 'nvidia' or 'groq'."
         )
 
 
 # ---------------------------------------------------------------------------
 # Provider-specific builders
 # ---------------------------------------------------------------------------
+
+
+def _build_gemini_llm(
+    model_name: Optional[str],
+    temperature: float,
+    top_p: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+) -> BaseChatModel:
+    """Build a ChatGoogleGenerativeAI instance.
+
+    Args:
+        model_name: Model identifier override.  Falls back to ``GEMINI_MODEL``
+            env var, then :data:`_GEMINI_DEFAULT_MODEL`.
+        temperature: Sampling temperature.
+        top_p: Nucleus-sampling probability mass.  Omitted when ``None``.
+        max_tokens: Maximum completion tokens.  Omitted when ``None``.
+
+    Returns:
+        Initialized :class:`~langchain_google_genai.ChatGoogleGenerativeAI`.
+
+    Raises:
+        ValueError: If ``GOOGLE_API_KEY`` is not set.
+    """
+    from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
+
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GOOGLE_API_KEY environment variable is not set. "
+            "Please check your .env file or environment configuration."
+        )
+
+    model = model_name or os.getenv("GEMINI_MODEL", _GEMINI_DEFAULT_MODEL)
+
+    kwargs: dict = dict(
+        model=model,
+        temperature=temperature,
+        google_api_key=api_key,
+    )
+    if top_p is not None:
+        kwargs["top_p"] = top_p
+    if max_tokens is not None:
+        kwargs["max_output_tokens"] = max_tokens
+
+    return ChatGoogleGenerativeAI(**kwargs)
 
 
 def _build_nvidia_llm(
@@ -162,6 +221,7 @@ def _build_nvidia_llm(
         api_key=api_key,
         model=model,
         temperature=temperature,
+        timeout=120,
     )
     if top_p is not None:
         kwargs["top_p"] = top_p
@@ -219,7 +279,7 @@ if __name__ == "__main__":
     print("Initializing LLM...")
     try:
         llm = get_llm()
-        print(f"Provider : {os.getenv('LLM_PROVIDER', 'nvidia')}")
+        print(f"Provider : {os.getenv('LLM_PROVIDER', 'gemini')}")
         print(f"Model    : {getattr(llm, 'model', getattr(llm, 'model_name', 'unknown'))}")
         print("Testing completion...")
         response = llm.invoke("Reply with exactly one word: Ready")

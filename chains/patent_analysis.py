@@ -53,8 +53,8 @@ from typing import Optional
 
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import Runnable
+from langchain_core.language_models.chat_models import BaseChatModel
 from llm.prompts import PATENT_ANALYSIS_PROMPT, _build_optional_context
-from llm.provider import get_llm
 from analysis.schema import PatentAnalysisResult
 
 
@@ -108,10 +108,7 @@ class PatentAnalysisInput:
 # ---------------------------------------------------------------------------
 
 
-def build_patent_analysis_chain(
-    model_name: Optional[str] = None,
-    temperature: float = 0.0,
-) -> Runnable:
+def build_patent_analysis_chain(llm: BaseChatModel) -> Runnable:
     """Build the raw patent analysis LCEL chain.
 
     The chain is composed as::
@@ -123,40 +120,29 @@ def build_patent_analysis_chain(
     ``AIMessage`` from the model.
 
     Args:
-        model_name: Optional model override forwarded to
-            :func:`llm.provider.get_llm`.
-        temperature: Sampling temperature. Defaults to ``0.0``.
+        llm: A configured LangChain chat model.
 
     Returns:
         A ``Runnable`` (``prompt | llm``) that yields an ``AIMessage``.
     """
-    llm = get_llm(model_name=model_name, temperature=temperature)
     return PATENT_ANALYSIS_PROMPT | llm
 
 
 def run_patent_analysis(
     input_data: PatentAnalysisInput,
-    model_name: Optional[str] = None,
-    temperature: float = 0.0,
+    llm: BaseChatModel,
 ) -> AIMessage:
     """Run the raw patent analysis chain and return the model's ``AIMessage``.
 
     Args:
         input_data: A :class:`PatentAnalysisInput` with all required fields.
-        model_name: Optional model override.
-        temperature: Sampling temperature. Defaults to ``0.0``.
+        llm: A configured LangChain chat model.
 
     Returns:
         :class:`~langchain_core.messages.AIMessage` — access text via
         ``response.content``.
-
-    Raises:
-        ValueError: If ``GROQ_API_KEY`` is not set in the environment.
     """
-    chain = build_patent_analysis_chain(
-        model_name=model_name,
-        temperature=temperature,
-    )
+    chain = build_patent_analysis_chain(llm)
     return chain.invoke(input_data.to_prompt_dict())
 
 
@@ -165,13 +151,7 @@ def run_patent_analysis(
 # ---------------------------------------------------------------------------
 
 
-def build_structured_patent_analysis_chain(
-    model_name: Optional[str] = None,
-    temperature: float = 1.0,
-    top_p: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    seed: Optional[int] = None,
-) -> Runnable:
+def build_structured_patent_analysis_chain(llm: BaseChatModel) -> Runnable:
     """Build the structured patent analysis LCEL chain.
 
     Uses LangChain's ``with_structured_output`` to bind the LLM to
@@ -184,13 +164,7 @@ def build_structured_patent_analysis_chain(
         PATENT_ANALYSIS_PROMPT | llm.with_structured_output(PatentAnalysisResult)
 
     Args:
-        model_name: Optional model override forwarded to
-            :func:`llm.provider.get_llm`.
-        temperature: Sampling temperature. Defaults to ``1.0`` to match
-            GLM-5.2's recommended setting.
-        top_p: Nucleus-sampling probability mass (NVIDIA/GLM only).
-        max_tokens: Maximum completion tokens (NVIDIA/GLM only).
-        seed: Fixed random seed (NVIDIA/GLM only).
+        llm: A configured LangChain chat model.
 
     Returns:
         A ``Runnable`` that yields a :class:`~analysis.schema.PatentAnalysisResult`
@@ -198,26 +172,19 @@ def build_structured_patent_analysis_chain(
 
     Example::
 
-        chain = build_structured_patent_analysis_chain()
+        llm = get_llm()
+        chain = build_structured_patent_analysis_chain(llm)
         result: PatentAnalysisResult = chain.invoke(input_obj.to_prompt_dict())
         print(result.risk_level)   # e.g. RiskLevel.HIGH
         print(result.confidence)   # e.g. 0.82
     """
-    llm = get_llm(
-        model_name=model_name,
-        temperature=temperature,
-        top_p=top_p,
-        max_tokens=max_tokens,
-        seed=seed,
-    )
     structured_llm = llm.with_structured_output(PatentAnalysisResult)
     return PATENT_ANALYSIS_PROMPT | structured_llm
 
 
 def run_structured_patent_analysis(
     input_data: PatentAnalysisInput,
-    model_name: Optional[str] = None,
-    temperature: float = 0.0,
+    llm: BaseChatModel,
 ) -> PatentAnalysisResult:
     """Run the structured patent analysis chain and return a Pydantic result.
 
@@ -227,21 +194,14 @@ def run_structured_patent_analysis(
 
     Args:
         input_data: A :class:`PatentAnalysisInput` with all required fields.
-        model_name: Optional model override.
-        temperature: Sampling temperature. Defaults to ``0.0``.
+        llm: A configured LangChain chat model.
 
     Returns:
         :class:`~analysis.schema.PatentAnalysisResult` — a validated Pydantic
         object containing ``why_retrieved``, ``similarities``,
         ``potential_overlap``, ``confidence``, and ``risk_level``.
-
-    Raises:
-        ValueError: If ``GROQ_API_KEY`` is not set in the environment.
     """
-    chain = build_structured_patent_analysis_chain(
-        model_name=model_name,
-        temperature=temperature,
-    )
+    chain = build_structured_patent_analysis_chain(llm)
     return chain.invoke(input_data.to_prompt_dict())
 
 
@@ -283,7 +243,9 @@ if __name__ == "__main__":
 
     print("\nRunning structured analysis…")
     try:
-        result: PatentAnalysisResult = run_structured_patent_analysis(sample_input)
+        from llm.provider import get_llm
+        llm = get_llm(temperature=0.0)
+        result: PatentAnalysisResult = run_structured_patent_analysis(sample_input, llm)
 
         print("\n" + "=" * 60)
         print("Dashboard Analysis (Structured)")

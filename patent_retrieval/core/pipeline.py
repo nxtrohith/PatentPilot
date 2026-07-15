@@ -10,8 +10,7 @@ Workflow:
       → GET /search/{hash}/results       (results_service)
       → POST /search/documents_for_structures per chemical  (metadata_service)
       → POST /document/batch             (metadata_service)
-      → enrich missing abstracts         (enrichment_service)
-      → return top 10 PatentResult objects
+      → return top N raw PatentResult objects
 """
 from __future__ import annotations
 
@@ -22,7 +21,6 @@ from .config import RetrievalConfig, TOP_PATENTS_LIMIT
 from .http_session import SureChemblSession
 from ..models import PatentResult, RetrievalError
 from ..services import (
-    enrich_missing_abstracts,
     fetch_patent_details,
     retrieve_patent_ids_for_chemicals,
     enrich_patent,
@@ -37,6 +35,13 @@ logger = logging.getLogger(__name__)
 
 class PatentRetrievalPipeline:
     """Orchestrates the full SMILES-to-patents retrieval workflow.
+
+    EXTENSION POINT: Vector Search & Embeddings
+    -------------------------------------------
+    This class currently drives retrieval via the SureChEMBL REST API.
+    In the future, this is the appropriate abstraction layer to inject a
+    `VectorStoreRetriever` (e.g. Pinecone, Milvus) that searches over pre-computed
+    molecular fingerprints or LLM embeddings of patent claims.
 
     Usage::
 
@@ -130,12 +135,9 @@ class PatentRetrievalPipeline:
             len(results), len(raw_patents),
         )
 
-        # Step 7 – enrich missing abstracts from Google Patents
-        results = enrich_missing_abstracts(results, self.config)
-
-        # Step 8 – return top N
+        # Step 7 – return top N (un-enriched)
         top = results[:top_n]
-        logger.info("Pipeline complete. Returning %d patent(s).", len(top))
+        logger.info("Pipeline complete. Returning %d raw patent(s).", len(top))
         return top
 
 
