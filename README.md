@@ -1,20 +1,23 @@
 # PatentPilot 🧬🔬
 > AI-Assisted Freedom-to-Operate (FTO) Workspace
 
-PatentPilot is a resilient, production-ready pipeline designed to help researchers execute Freedom-to-Operate (FTO) assessments. By inputting a chemical structure (SMILES), researchers can search, retrieve, and automatically enrich patent information to detect intellectual property overlaps early in the drug discovery process.
+PatentPilot is a resilient, full-stack application designed to help researchers execute Freedom-to-Operate (FTO) assessments. By inputting a chemical structure (SMILES) along with target and disease data, researchers can search, retrieve, automatically enrich patent information, and perform AI-assisted overlap analysis to detect intellectual property risks early in the drug discovery process.
+
+The system orchestrates a multi-stage LangGraph workflow on the backend and streams real-time progress to a premium Next.js dashboard via Server-Sent Events (SSE). It also provides persistent MongoDB history tracking.
 
 ---
 
-## 🏗️ Overall Architecture
+## 🏗️ System Architecture
 
-The codebase is organized into modular packages to isolate concerns and support future scalability. It uses LangGraph to orchestrate a multi-stage workflow:
+The codebase is organized into a modular FastAPI backend and a responsive Next.js frontend. The backend orchestrates a multi-stage workflow via LangGraph, integrating chemical databases, web scrapers, and Gemini LLM.
 
 ```mermaid
 graph TD
-    User([Researcher Input]) --> run(run.py)
-    run --> Workflow[LangGraph: build_patent_workflow]
+    User([Researcher / User]) --> Frontend[Next.js React Frontend: localhost:3000]
+    Frontend -->|HTTP / SSE Streaming| API[FastAPI Backend: localhost:8000]
+    API --> LangGraph[LangGraph: build_patent_workflow]
     
-    subgraph LangGraph Workflow
+    subgraph LangGraph Pipeline
         Retrieve[retrieve_patents_node] --> Enrich[enrich_patents_node]
         Enrich --> Rank[rank_patents_node]
         Rank --> Analyze[analyze_patents_node]
@@ -22,21 +25,15 @@ graph TD
         Aggregate --> Report[generate_report_node]
     end
     
-    Workflow --> Retrieve
+    LangGraph --> Retrieve
     
-    Retrieve --> patent_retrieval
-    Enrich --> patent_retrieval
-    Analyze --> analysis
-    Report --> analysis
+    Retrieve --> RetrievalService[Patent Retrieval Services]
+    Enrich --> RetrievalService
+    Analyze --> AnalysisService[AI Analysis Service: Gemini]
+    Report --> AnalysisService
     
-    subgraph patent_retrieval
-        Services[Services: API & Data Enrichment]
-        DB[Database: MongoDB Persistence]
-    end
-    
-    subgraph analysis
-        LLM[LLM Service: Gemini]
-    end
+    API -->|Persistence| DB[(MongoDB: Analyses History)]
+    Frontend -->|Fetch History| API
 ```
 
 ### Module Breakdown
@@ -48,6 +45,25 @@ graph TD
 - **`patent_retrieval/services/`**: Integration services for chemical searches, metadata retrieval, batch fetching, and HTML web-scraping/enrichment.
 - **`patent_retrieval/database/`**: MongoDB client setup and document persistence services.
 - **`patent_retrieval/utils/`**: Generic helpers for traversing dynamic JSON trees.
+- **`frontend/`**: Interactive Next.js single-page application and history dashboard.
+- **`api.py`**: FastAPI HTTP endpoints, SSE streaming generator, and MongoDB history API.
+
+---
+
+## ✨ Key Features
+
+- **Interactive Molecule Submission**: Input chemical structure (SMILES) and specify optional biological targets and disease indications.
+- **Real-Time Progress Streaming**: Connects to the backend via Server-Sent Events (SSE) to display step-by-step progress as LangGraph runs.
+- **FTO Results Dashboard**:
+  - Displays retrieved patents with Tanimoto similarity scores, assignees, dates, and source attribution (SureChEMBL, PubChem, Google Patents).
+  - Highlighting of patent metadata and easy-to-use search filters.
+  - Interactive details showing AI explanations of why a patent was retrieved, molecular similarity overlaps, and estimated overlap confidence.
+  - Overall Patent Risk assessment badges (Low Patent Risk, Requires Expert Review, High Patent Risk).
+  - Complete generated report with Executive Summary, Key Similar Patents, Novelty Concerns, and Patents Requiring Manual Review.
+- **Persistent FTO Analysis History**:
+  - Review previously saved FTO reports.
+  - Filter by risk level, search by SMILES/target/disease, and sort by newest/oldest.
+  - Open any past analysis directly back into the results dashboard, or delete unwanted records.
 
 ---
 
@@ -70,13 +86,26 @@ When SureChEMBL fails to provide an abstract for a patent, PatentPilot invokes i
 
 ---
 
+## 🔌 API Endpoints
+
+- `POST /analyze`: Runs the full patent analysis pipeline synchronously. Returns the final report.
+- `POST /analyze/stream`: Runs the pipeline with Server-Sent Events (SSE) streaming progress updates and final result payload. Automatically saves the final result to MongoDB.
+- `GET /api/history`: Retrieves the list of past analyses (excluding heavy report/patents data) for dashboard navigation.
+- `GET /api/history/{id}`: Retrieves a full saved FTO analysis document.
+- `POST /api/history`: Saves a custom analysis document manually.
+- `DELETE /api/history/{id}`: Deletes a specific analysis document.
+- `DELETE /api/history?confirm=true`: Clears all history.
+- `GET /health`: Health check endpoint.
+
+---
+
 ## 🛠️ Technologies Used
 
-- **Python >= 3.14**: Core backend language.
-- **MongoDB**: Schema-less database suited for storing variable metadata and raw patent dumps.
-- **requests**: Standard library alternative for network requests.
-- **pytest**: Lightweight test runner for validation.
-- **uv**: Package installer and virtualenv manager.
+- **Frontend**: Next.js 15 (React 19), TypeScript, Vanilla CSS (designed with modern aesthetics, glassmorphism, responsive grid layouts, and fade-in animations).
+- **Backend**: Python >= 3.14 (FastAPI, Uvicorn, LangGraph, Pydantic, PyMongo).
+- **Database**: MongoDB (local or Atlas) for analysis history persistence.
+- **LLM**: Gemini API (integrated with LangGraph workflow nodes).
+- **Package Manager**: `uv` (Python), `npm` (Node.js).
 
 ---
 
@@ -95,31 +124,40 @@ When SureChEMBL fails to provide an abstract for a patent, PatentPilot invokes i
 ## 🚀 Running the Project Locally
 
 ### 1. Prerequisites
-Ensure you have [uv](https://github.com/astral-sh/uv) installed.
+Ensure you have the following installed:
+- [uv](https://github.com/astral-sh/uv) (Python package installer)
+- [Node.js](https://nodejs.org/) (v18 or higher) and `npm`
+- [MongoDB](https://www.mongodb.com/) (running locally or a MongoDB Atlas connection string)
 
-### 2. Setup Database Connection & API Keys
+### 2. Setup Environment Variables
 Create a `.env` file at the project root and add your MongoDB connection string and Gemini API key:
 ```env
 MONGODB_URI=mongodb+srv://your-uri
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-### 3. Install Dependencies
-Initialize the virtual environment:
+### 3. Start the Backend API
+From the root directory, run the FastAPI server:
 ```bash
-uv venv
-source .venv/bin/activate
+# Sync python dependencies
 uv sync
-```
 
-### 4. Execute Pipeline
-Run the main script:
-```bash
-uv run run.py
+# Run FastAPI with Uvicorn
+uv run uvicorn api:app --reload --host 0.0.0.0 --port 8000
 ```
+The backend API will be available at `http://localhost:8000`. You can inspect the interactive OpenAPI documentation at `http://localhost:8000/docs`.
+
+### 4. Start the Frontend App
+Open a new terminal window, navigate to the `frontend` directory, install Node dependencies, and start the development server:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+The Next.js web application will be running at `http://localhost:3000`.
 
 ### 5. Run Test Suite
-Run tests with `pytest`:
+To run backend unit tests:
 ```bash
 uv run pytest
 ```
