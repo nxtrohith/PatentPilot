@@ -7,6 +7,24 @@ The system orchestrates a multi-stage LangGraph workflow on the backend and stre
 
 ---
 
+## 📸 Screenshots
+
+### Landing Page
+![Landing Page](./images/LandingPage.png)
+
+### Submitting Analysis
+![Submitting Analysis](./images/SubmittingPage.png)
+
+### Results Page
+![Results Page 1](./images/ResultPage1.png)
+![Results Page 2](./images/ResultPage2.png)
+![Results Page 3](./images/ResultPage3.png)
+
+### History Dashboard
+![History Page](./images/HistoryPage.png)
+
+---
+
 ## 🏗️ System Architecture
 
 The codebase is organized into a modular FastAPI backend and a responsive Next.js frontend. The backend orchestrates a multi-stage workflow via LangGraph, integrating chemical databases, web scrapers, and Gemini LLM.
