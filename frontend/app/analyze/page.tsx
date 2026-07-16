@@ -6,14 +6,14 @@ import Link from "next/link";
 /* ─── Types ───────────────────────────────────────────── */
 type AnalysisState = "input" | "loading" | "results" | "error";
 
-type RiskLevel = "low" | "medium" | "high" | "critical";
-type Recommendation =
+export type RiskLevel = "low" | "medium" | "high" | "critical";
+export type Recommendation =
   | "proceed"
   | "proceed_with_caution"
   | "consult_ip_counsel"
   | "do_not_proceed";
 
-interface Patent {
+export interface Patent {
   title: string;
   publication_number: string | null;
   assignee: string | null;
@@ -28,7 +28,7 @@ interface Patent {
   risk_level: RiskLevel;
 }
 
-interface AnalysisResult {
+export interface AnalysisResult {
   smiles: string;
   target: string | null;
   disease: string | null;
@@ -49,7 +49,7 @@ interface ProgressEvent {
 }
 
 /* ─── Helpers ─────────────────────────────────────────── */
-const RISK_CONFIG: Record<
+export const RISK_CONFIG: Record<
   RiskLevel,
   { label: string; cls: string; color: string; bg: string; border: string }
 > = {
@@ -83,7 +83,7 @@ const RISK_CONFIG: Record<
   },
 };
 
-const REC_CONFIG: Record<
+export const REC_CONFIG: Record<
   Recommendation,
   { label: string; cls: string; color: string; bg: string; border: string }
 > = {
@@ -157,6 +157,17 @@ function Nav() {
           >
             FTO Analysis Workspace
           </span>
+          <Link
+            href="/history"
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: "13px",
+              color: "var(--text-secondary)",
+              textDecoration: "none",
+            }}
+          >
+            History
+          </Link>
           <Link
             href="/"
             style={{
@@ -1175,7 +1186,7 @@ function RetrievalSummaryCard() {
 }
 
 /* ─── Results ─────────────────────────────────────────── */
-function ResultsPanel({
+export function ResultsPanel({
   result,
   onReset,
 }: {
@@ -1776,7 +1787,7 @@ export default function AnalyzePage() {
         const response = await fetch(`${API_URL}/analyze/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ smiles, target: target || null, disease: disease || null, top_n: 8 }),
+          body: JSON.stringify({ smiles, target: target || null, disease: disease || null, top_n: 5 }),
           signal: abortRef.current.signal,
         });
 

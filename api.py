@@ -14,6 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+import os
+import time
+import datetime
+from fastapi import Query
+from pymongo import MongoClient
+from bson.objectid import ObjectId
 
 load_dotenv(".env")
 
@@ -37,6 +43,87 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------------------------------------------------------------------
+# MongoDB Initialization
+# ---------------------------------------------------------------------------
+
+mongo_client = None
+analyses_collection = None
+if os.getenv("MONGODB_URI"):
+    try:
+        mongo_client = MongoClient(os.getenv("MONGODB_URI"))
+        db = mongo_client["patentpilot"]
+        analyses_collection = db["analyses"]
+        logger.info("Successfully connected to MongoDB")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+
+# ---------------------------------------------------------------------------
+# History Helpers
+# ---------------------------------------------------------------------------
+
+def _determine_patent_risk(recommendation: str) -> str:
+    if recommendation == "proceed":
+        return "Low Patent Risk"
+    elif recommendation in ["proceed_with_caution", "consult_ip_counsel"]:
+        return "Requires Expert Review"
+    else:
+        return "High Patent Risk"
+
+def _save_analysis_doc(payload: dict, retrieved_count: int, duration: float):
+    if analyses_collection is None:
+        return
+    try:
+        now = datetime.datetime.utcnow()
+        doc = {
+            "createdAt": now,
+            "updatedAt": now,
+            "smiles": payload["smiles"],
+            "target": payload.get("target"),
+            "disease": payload.get("disease"),
+            "retrievedPatentCount": retrieved_count,
+            "analyzedPatentCount": len(payload.get("patents", [])),
+            "patentRisk": _determine_patent_risk(payload.get("overall_recommendation", "")),
+            "analysisDuration": duration,
+            "report": {
+                "executiveSummary": payload.get("executive_summary", ""),
+                "keySimilarPatents": payload.get("key_similar_patents", []),
+                "noveltyConcerns": payload.get("novelty_concerns", []),
+                "manualReview": payload.get("patents_requiring_review", []),
+                "recommendation": payload.get("overall_recommendation", "")
+            },
+            "patents": []
+        }
+        for p in payload.get("patents", []):
+            why = p.get("why_retrieved", "")
+            sims = "\n".join(p.get("similarities", []))
+            overlap = p.get("potential_overlap", "")
+            ai_exp = f"{why}\n\n{sims}\n\n{overlap}".strip()
+            
+            doc["patents"].append({
+                "patentNumber": p.get("publication_number"),
+                "title": p.get("title"),
+                "publicationDate": p.get("publication_date"),
+                "assignee": p.get("assignee"),
+                "source": p.get("source"),
+                "similarityScore": p.get("similarity_score"),
+                "confidence": p.get("confidence", 0),
+                "abstract": p.get("abstract"),
+                "aiExplanation": ai_exp
+            })
+        analyses_collection.insert_one(doc)
+    except Exception as e:
+        logger.exception("Failed to save analysis to MongoDB")
+
+def serialize_doc(doc):
+    doc["id"] = str(doc["_id"])
+    del doc["_id"]
+    if isinstance(doc.get("createdAt"), datetime.datetime):
+        doc["createdAt"] = doc["createdAt"].isoformat() + "Z"
+    if isinstance(doc.get("updatedAt"), datetime.datetime):
+        doc["updatedAt"] = doc["updatedAt"].isoformat() + "Z"
+    return doc
+
 
 # ---------------------------------------------------------------------------
 # Request / Response schemas
@@ -47,7 +134,7 @@ class AnalyzeRequest(BaseModel):
     smiles: str = Field(..., description="SMILES string of the compound to analyze")
     target: Optional[str] = Field(None, description="Biological target (optional)")
     disease: Optional[str] = Field(None, description="Disease / indication (optional)")
-    top_n: Optional[int] = Field(8, description="Number of patents to retrieve")
+    top_n: Optional[int] = Field(5, description="Number of patents to retrieve")
 
 
 class PatentAnalysisItem(BaseModel):
@@ -97,6 +184,55 @@ def _sse(event: str, data: dict) -> str:
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "PatentPilot API"}
+
+@app.post("/api/history")
+def save_history(req: dict):
+    _save_analysis_doc(req, req.get("retrievedPatentCount", len(req.get("patents", []))), req.get("analysisDuration", 0))
+    return {"status": "ok"}
+
+@app.get("/api/history")
+def get_all_history(page: int = 1, limit: int = 20):
+    if analyses_collection is None:
+        return []
+    skip = (page - 1) * limit
+    cursor = analyses_collection.find({}, {
+        "report": 0, "patents": 0
+    }).sort("createdAt", -1).skip(skip).limit(limit)
+    
+    results = []
+    for doc in cursor:
+        results.append(serialize_doc(doc))
+    return results
+
+@app.get("/api/history/{id}")
+def get_single_history(id: str):
+    if analyses_collection is None:
+        raise HTTPException(status_code=500, detail="DB not configured")
+    try:
+        doc = analyses_collection.find_one({"_id": ObjectId(id)})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Not found")
+        return serialize_doc(doc)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+
+@app.delete("/api/history/{id}")
+def delete_history(id: str):
+    if analyses_collection is None:
+        raise HTTPException(status_code=500, detail="DB not configured")
+    res = analyses_collection.delete_one({"_id": ObjectId(id)})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"status": "ok"}
+
+@app.delete("/api/history")
+def delete_all_history(confirm: str = Query(None)):
+    if analyses_collection is None:
+        raise HTTPException(status_code=500, detail="DB not configured")
+    if confirm != "true":
+        raise HTTPException(status_code=400, detail="Must provide ?confirm=true")
+    analyses_collection.delete_many({})
+    return {"status": "ok"}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -186,6 +322,7 @@ async def analyze_stream(req: AnalyzeRequest):
     """
 
     async def event_generator() -> AsyncGenerator[str, None]:
+        start_time = time.time()
         steps = [
             "Searching molecular databases",
             "Retrieving relevant patents",
@@ -285,6 +422,11 @@ async def analyze_stream(req: AnalyzeRequest):
                 "recommendation_explanation": report.recommendation_explanation,
                 "errors": errors,
             }
+            
+            # Save to history DB
+            duration = time.time() - start_time
+            _save_analysis_doc(result_payload, len(ranked_patents), duration)
+
             yield _sse("result", result_payload)
         else:
             yield _sse("error", {"message": "Report generation failed", "errors": errors})

@@ -73,6 +73,17 @@ function Nav() {
           >
             Workflow
           </a>
+          <Link
+            href="/history"
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: "14px",
+              color: "var(--text-secondary)",
+              textDecoration: "none",
+            }}
+          >
+            History
+          </Link>
           <Link href="/analyze" className="btn-primary" id="nav-cta">
             Analyze Molecule
           </Link>
