@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 
 /* ─── Scroll animation hook ──────────────────────────── */
 function useFadeIn() {
@@ -72,9 +73,9 @@ function Nav() {
           >
             Workflow
           </a>
-          <a href="#cta" className="btn-primary" id="nav-cta">
+          <Link href="/analyze" className="btn-primary" id="nav-cta">
             Analyze Molecule
-          </a>
+          </Link>
         </div>
       </div>
     </nav>
@@ -139,9 +140,9 @@ function Hero() {
             </p>
 
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <a href="#cta" className="btn-primary" id="hero-cta-analyze">
+              <Link href="/analyze" className="btn-primary" id="hero-cta-analyze">
                 Analyze Molecule
-              </a>
+              </Link>
               <a href="#workflow" className="btn-secondary" id="hero-cta-demo">
                 View Demo
               </a>
@@ -901,9 +902,9 @@ function FinalCTA() {
           </p>
 
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <a href="#" className="btn-primary" id="cta-analyze">
+            <Link href="/analyze" className="btn-primary" id="cta-analyze">
               Analyze Molecule
-            </a>
+            </Link>
             <a href="#workflow" className="btn-secondary" id="cta-demo">
               View Demo
             </a>
