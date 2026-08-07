@@ -401,7 +401,7 @@ class TestPatentRetrievalPipeline:
             patch("patent_retrieval.core.pipeline.retrieve_search_results", return_value=chemical_matches),
             patch("patent_retrieval.core.pipeline.retrieve_patent_ids_for_chemicals", return_value=patent_id_scores),
             patch("patent_retrieval.core.pipeline.fetch_patent_details", return_value=raw_patents),
-            patch("patent_retrieval.core.pipeline.enrich_missing_abstracts", side_effect=lambda patents, cfg: patents),
+            patch("patent_retrieval.core.pipeline.enrich_patent", side_effect=lambda raw: raw),
         ):
             result = pipeline.run("CC", top_n=10)
 
@@ -436,7 +436,7 @@ class TestPatentRetrievalPipeline:
             patch("patent_retrieval.core.pipeline.retrieve_search_results", return_value=chemical_matches),
             patch("patent_retrieval.core.pipeline.retrieve_patent_ids_for_chemicals", return_value=patent_id_scores),
             patch("patent_retrieval.core.pipeline.fetch_patent_details", return_value=raw_patents),
-            patch("patent_retrieval.core.pipeline.enrich_missing_abstracts", side_effect=lambda patents, cfg: patents),
+            patch("patent_retrieval.core.pipeline.enrich_patent", side_effect=lambda raw: raw),
         ):
             result = pipeline.run("CC", top_n=3)
 
